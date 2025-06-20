@@ -195,7 +195,7 @@ class ImageApp(tk.Tk):
                 raise ValueError("Изображение должно быть цветным (3 канала RGB)")
 
             # Рисуем круг
-            img_with_circle = cv2.circle(img_np.copy(), (x, y), r, (255, 0, 0), 2)
+            img_with_circle = cv2.circle(img_np.copy(), (x, y), r, (255, 0, 0), 10)
 
             # Обратно в тензор
             self.current = TF.to_tensor(Image.fromarray(img_with_circle))
