@@ -152,18 +152,74 @@ class ImageApp(tk.Tk):
     """
     Рисует красный круг с заданными координатами X, Y и радиусом R.
     """
+
     def draw_circle(self):
         try:
-            x, y, r = int(self.circ_x.get()), int(self.circ_y.get()), int(self.circ_r.get())
-        except ValueError:
-            messagebox.showerror("Ошибка", "Введите целые числа X, Y и R")
-            return
-        if self.current is None:
-            return
-        img = (self.current.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-        img = cv2.circle(img, (x, y), r, (255, 0, 0), 2)
-        self.current = TF.to_tensor(Image.fromarray(img))
-        self.update_view()
+            if self.current is None:
+                messagebox.showerror("Ошибка", "Сначала загрузите изображение")
+                return
+
+            # Получаем размеры изображения
+            img_height, img_width = self.current.shape[1], self.current.shape[2]
+
+            # Получаем параметры круга с проверкой на пустые поля
+            if not self.circ_x.get() or not self.circ_y.get() or not self.circ_r.get():
+                raise ValueError("Все поля (X, Y, R) должны быть заполнены")
+
+            x = int(self.circ_x.get())
+            y = int(self.circ_y.get())
+            r = int(self.circ_r.get())
+
+            # Проверяем допустимость значений
+            if r <= 0:
+                raise ValueError(f"Радиус должен быть положительным числом (вы ввели: {r})")
+
+            if x < 0 or x >= img_width:
+                raise ValueError(f"Координата X должна быть от 0 до {img_width - 1} (вы ввели: {x})")
+
+            if y < 0 or y >= img_height:
+                raise ValueError(f"Координата Y должна быть от 0 до {img_height - 1} (вы ввели: {y})")
+
+            if x - r < 0 or x + r >= img_width or y - r < 0 or y + r >= img_height:
+                max_r = min(x, img_width - 1 - x, y, img_height - 1 - y)
+                raise ValueError(f"Круг не помещается в изображение.\n"
+                                 f"Максимальный радиус для X={x}, Y={y}: {max_r}\n"
+                                 f"Вы ввели радиус: {r}")
+
+            # Преобразуем тензор в изображение OpenCV
+            img_np = self.current.mul(255).byte().cpu().numpy()
+            img_np = np.transpose(img_np, (1, 2, 0))
+
+            # Проверяем формат изображения
+            if img_np.shape[2] != 3:
+                raise ValueError("Изображение должно быть цветным (3 канала RGB)")
+
+            # Рисуем круг
+            img_with_circle = cv2.circle(img_np.copy(), (x, y), r, (255, 0, 0), 2)
+
+            # Обратно в тензор
+            self.current = TF.to_tensor(Image.fromarray(img_with_circle))
+            self.update_view()
+
+        except ValueError as e:
+            # Формируем подробное сообщение об ошибке с подсказками
+            if self.current is not None:
+                img_height, img_width = self.current.shape[1], self.current.shape[2]
+                error_msg = (
+                    f"{str(e)}\n\n"
+                    f"Допустимые значения:\n"
+                    f"- Координата X: от 0 до {img_width - 1}\n"
+                    f"- Координата Y: от 0 до {img_height - 1}\n"
+                    f"- Радиус R: положительное число, чтобы круг помещался в изображение\n\n"
+                    f"Текущий размер изображения: {img_width}x{img_height} пикселей"
+                )
+            else:
+                error_msg = str(e)
+
+            messagebox.showerror("Ошибка ввода параметров", error_msg)
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось нарисовать круг: {str(e)}")
 
     """
     Повышает или понижает яркость изображения на указанное значение.
